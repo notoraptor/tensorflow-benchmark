@@ -7,12 +7,12 @@ import tensorflow as tf
 
 def weight_variable(shape, dtype):
     initial = tf.truncated_normal(shape, stddev=0.1, dtype=dtype)
-    return tf.Variable(initial)
+    return tf.Variable(initial, dtype=dtype)
 
 
 def bias_variable(shape, dtype):
     initial = tf.constant(0.1, shape=shape, dtype=dtype)
-    return tf.Variable(initial)
+    return tf.Variable(initial, dtype=dtype)
 
 
 def conv2d(x, W):
