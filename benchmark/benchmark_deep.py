@@ -28,12 +28,20 @@ if __name__ == '__main__':
     tf.set_random_seed(87654321)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dtype", type=str, default='float32', help='Input and output dtype')
-    parser.add_argument("--nbatch", type=int, default=64, help='Batch size of the layer')
-    parser.add_argument("--nin", type=int, default=100, help='Input size of the layer')
-    parser.add_argument("--nout", type=int, default=10, help='Output size of the layer')
-    parser.add_argument("--nsteps", type=int, default=20000, help='Number of training steps')
+    default_dtype = 'float32'
+    default_nbatch = 100
+    default_nin = 64
+    default_nout = 10
+    default_nsteps = 1000
+    parser.add_argument("--dtype", type=str, default=default_dtype, help='Input and output dtype (default %s)' % default_dtype)
+    parser.add_argument("--nbatch", type=int, default=default_nbatch, help='Batch size of the layer (default %d)' % default_nbatch)
+    parser.add_argument("--nin", type=int, default=default_nin,
+                        help='Input size (size x size) of the layer, should be a multiple of 4 (default %d)' % default_nin)
+    parser.add_argument("--nout", type=int, default=default_nout, help='Output size of the layer (default %d)' % default_nout)
+    parser.add_argument("--nsteps", type=int, default=default_nsteps, help='Number of training steps (default %d)' % default_nsteps)
     args = parser.parse_args()
+
+    assert args.nin % 4 == 0, "Input size must be a multiple of 4."
 
     length = args.nin
     image_size = length * length
