@@ -1,5 +1,6 @@
 # Inspired from: https://www.tensorflow.org/get_started/mnist/pros
 from __future__ import absolute_import, print_function, division
+from datetime import datetime
 import argparse
 import numpy as np
 import tensorflow as tf
@@ -85,9 +86,17 @@ if __name__ == '__main__':
     train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 
     with tf.Session() as sess:
+        # Start profiling
+        time_start = datetime.now()
         sess.run(tf.global_variables_initializer())
         for i in range(args.nsteps):
             sess.run(train_step)
             if (i + 1) % 100 == 0:
                 print("Step %d/%d" % (i + 1, args.nsteps))
-        print('End (%d)' % args.nsteps)
+        # end profiling
+        time_end = datetime.now()
+        if args.nsteps % 100 != 0:
+            print('End (%d steps)' % args.nsteps)
+        time_spent = time_end - time_start
+        seconds = time_spent.seconds + time_spent.days * 24 * 3600
+        print('Execution time:', seconds, 'sec +', time_spent.microseconds, 'microsec')
