@@ -63,10 +63,21 @@ def build_model(args):
 
     y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
 
+    return y_, y_conv
+
+
+def build_train(y_, y_conv):
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_conv))
     train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
-
     return train_step
+
+
+def build_accuracy(y_, y_conv, dtype):
+    correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
+    correct_prediction = tf.cast(correct_prediction, dtype)
+    accuracy = tf.reduce_mean(correct_prediction)
+    return accuracy
+
 
 if __name__ == '__main__':
     np.random.seed(12345678)
@@ -78,47 +89,68 @@ if __name__ == '__main__':
     default_nin = 64
     default_nout = 10
     default_nsteps = 1000
-    default_gpu1 = 0
-    default_gpu2 = -1
+    default_nruns = 2
+    default_ngpus = 1
     parser.add_argument("--dtype", type=str, default=default_dtype, help='Input and output dtype (default %s)' % default_dtype)
     parser.add_argument("--nbatch", type=int, default=default_nbatch, help='Batch size of the layer (default %d)' % default_nbatch)
     parser.add_argument("--nin", type=int, default=default_nin,
                         help='Input size (size x size) of the layer, should be a multiple of 4 (default %d)' % default_nin)
     parser.add_argument("--nout", type=int, default=default_nout, help='Output size of the layer (default %d)' % default_nout)
     parser.add_argument("--nsteps", type=int, default=default_nsteps, help='Number of training steps (default %d)' % default_nsteps)
-    parser.add_argument("--gpu1", type=int, default=default_gpu1, help='Index of 1st GPU to use (default %d). Pass -1 to deactivate.' % default_gpu1)
-    parser.add_argument("--gpu2", type=int, default=default_gpu2, help='Index of 2nd GPU to use (default %d). Pass -1 to deactivate.' % default_gpu2)
+    parser.add_argument("--nruns", type=int, default=default_nruns,
+                        help='Number of parallel runs, each run will train with nbatch/nruns inputs '
+                             '(default %d). nbatch must be a multiple of nruns.' % default_nruns)
+    parser.add_argument("--ngpus", type=int, default=default_ngpus,
+                        help='Number of GPUs to use (default %d). '
+                             'Tensorflow will label GPUs from gpu:0 to gpu:[ngpus-1]. Shoule be <= nruns.' % default_ngpus)
     parser.add_argument("--log", action='store_true', default=False, help='Log device placement (default false)')
     args = parser.parse_args()
 
-    computations = []
-    first_device_name = ('/cpu:0' if args.gpu1 < 0 else '/gpu:%d' % args.gpu1)
-    with tf.device(first_device_name):
-        computations += [build_model(args)]
-    if args.gpu2 >= 0:
-        with tf.device('/gpu:%d' % args.gpu2):
-            computations += [build_model(args)]
+    assert args.nbatch > 0, "nbatch must be strictly positive."
+    assert args.nbatch % args.nruns == 0, "nbatch must be a multiple of nruns."
+    assert args.ngpus <= args.nruns, "Number of GPUs must be less than or equal to number of runs."
 
-    if computations:
-        print('Ran %d computations.' % len(computations))
-        print()
-        if args.log:
-            config = tf.ConfigProto(log_device_placement=True)
-        else:
-            config=None
+    device_names = []
+    trains = []
+    accuracies = []
+    ncpus = args.nruns - args.ngpus
 
-        with tf.Session(config=config) as sess:
-            # Start profiling
-            time_start = datetime.now()
-            sess.run(tf.global_variables_initializer())
-            for i in range(args.nsteps):
-                sess.run(computations)
-                if (i + 1) % 100 == 0:
-                    print("Step %d/%d" % (i + 1, args.nsteps))
-            # end profiling
-            time_end = datetime.now()
-            if args.nsteps % 100 != 0:
-                print('End (%d steps)' % args.nsteps)
-            time_spent = time_end - time_start
-            seconds = time_spent.seconds + time_spent.days * 24 * 3600
-            print('Execution time:', seconds, 'sec +', time_spent.microseconds, 'microsec')
+    for i in range(ncpus):
+        device_names += ['/cpu:0']
+    for i in range(args.ngpus):
+        device_names += ['/gpu:%d' % i]
+
+    args.nbatch //= args.nruns
+    for i in range(args.nruns):
+        with tf.name_scope('benchmark_run_%d' % i):
+            with tf.device(device_names[i]):
+                y_, y_conv = build_model(args)
+                trains += [build_train(y_, y_conv)]
+                accuracies += [build_accuracy(y_, y_conv, args.dtype)]
+    with tf.name_scope('benchmark_run_final'):
+        with tf.device('/cpu:0'):
+            sum_accuracy = accuracies[0]
+            for i in range(1, args.nruns):
+                sum_accuracy += accuracies[i]
+            avg_accuracy = sum_accuracy / args.nruns
+
+    print('Testing %d runs.' % args.nruns)
+    print()
+    config = tf.ConfigProto(log_device_placement=True) if args.log else None
+    with tf.Session(config=config) as sess:
+        # Start profiling
+        time_start = datetime.now()
+        sess.run(tf.global_variables_initializer())
+        for i in range(args.nsteps):
+            sess.run(trains)
+            if (i + 1) % 100 == 0:
+                print("Step %d/%d" % (i + 1, args.nsteps))
+        # end profiling
+        time_end = datetime.now()
+        if args.nsteps % 100 != 0:
+            print('End (%d steps)' % args.nsteps)
+        sess.run(avg_accuracy)
+        print('End computation')
+        time_spent = time_end - time_start
+        seconds = time_spent.seconds + time_spent.days * 24 * 3600
+        print('Execution time:', seconds, 'sec +', time_spent.microseconds, 'microsec')
