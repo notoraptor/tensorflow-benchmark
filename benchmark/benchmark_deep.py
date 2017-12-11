@@ -103,6 +103,9 @@ if __name__ == '__main__':
     parser.add_argument("--ngpus", type=int, default=default_ngpus,
                         help='Number of GPUs to use (default %d). '
                              'Tensorflow will label GPUs from gpu:0 to gpu:[ngpus-1]. Shoule be <= nruns.' % default_ngpus)
+    parser.add_argument("--default-gpu", type=int, default=0,
+                        help='Default GPU to use (default 0). '
+                             'If value is -1 or if ngpus == 0, then CPU is used as default processins unit.')
     parser.add_argument("--log", action='store_true', default=False, help='Log device placement (default false)')
     args = parser.parse_args()
 
@@ -113,10 +116,11 @@ if __name__ == '__main__':
     device_names = []
     trains = []
     accuracies = []
-    ncpus = args.nruns - args.ngpus
+    ndefault_gpu = args.nruns - args.ngpus
+    default_gpu = '/cpu:0' if (args.ngpus == 0 or args.default_gpu < 0) else '/gpu:%d' % args.default_gpu
 
-    for i in range(ncpus):
-        device_names += ['/cpu:0']
+    for i in range(ndefault_gpu):
+        device_names += [default_gpu]
     for i in range(args.ngpus):
         device_names += ['/gpu:%d' % i]
 
