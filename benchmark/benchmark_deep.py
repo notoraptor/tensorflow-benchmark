@@ -23,8 +23,8 @@ def conv2d(x, W):
 def max_pool_2x2(x):
     return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
+
 def build_model(args):
-    assert args.nin % 4 == 0, "Input size must be a multiple of 4."
 
     length = args.nin
 
@@ -72,18 +72,10 @@ def build_train(y_, y_conv):
     return train_step
 
 
-def build_accuracy(y_, y_conv, dtype):
-    correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
-    correct_prediction = tf.cast(correct_prediction, dtype)
-    accuracy = tf.reduce_mean(correct_prediction)
-    return accuracy
-
-
 if __name__ == '__main__':
     np.random.seed(12345678)
     tf.set_random_seed(87654321)
 
-    parser = argparse.ArgumentParser()
     default_dtype = 'float32'
     default_nbatch = 100
     default_nin = 64
@@ -91,31 +83,38 @@ if __name__ == '__main__':
     default_nsteps = 1000
     default_nruns = 2
     default_ngpus = 1
-    parser.add_argument("--dtype", type=str, default=default_dtype, help='Input and output dtype (default %s)' % default_dtype)
-    parser.add_argument("--nbatch", type=int, default=default_nbatch, help='Batch size of the layer (default %d)' % default_nbatch)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dtype", type=str, default=default_dtype,
+                        help='Input and output dtype (default %s)' % default_dtype)
+    parser.add_argument("--nbatch", type=int, default=default_nbatch,
+                        help='Batch size of the layer (default %d)' % default_nbatch)
     parser.add_argument("--nin", type=int, default=default_nin,
-                        help='Input size (size x size) of the layer, should be a multiple of 4 (default %d)' % default_nin)
-    parser.add_argument("--nout", type=int, default=default_nout, help='Output size of the layer (default %d)' % default_nout)
-    parser.add_argument("--nsteps", type=int, default=default_nsteps, help='Number of training steps (default %d)' % default_nsteps)
+                        help='Input size x of the layer (for layer size x * x), should be a multiple of 4 '
+                             '(default %d)' % default_nin)
+    parser.add_argument("--nout", type=int, default=default_nout,
+                        help='Output size of the layer (default %d)' % default_nout)
+    parser.add_argument("--nsteps", type=int, default=default_nsteps,
+                        help='Number of training steps (default %d)' % default_nsteps)
     parser.add_argument("--nruns", type=int, default=default_nruns,
-                        help='Number of parallel runs, each run will train with nbatch/nruns inputs '
-                             '(default %d). nbatch must be a multiple of nruns.' % default_nruns)
+                        help='Number of parallel runs (default %d). Each run will train with nbatch/nruns inputs. '
+                             'nbatch must be a multiple of nruns.' % default_nruns)
     parser.add_argument("--ngpus", type=int, default=default_ngpus,
-                        help='Number of GPUs to use (default %d). '
-                             'Tensorflow will label GPUs from gpu:0 to gpu:[ngpus-1]. Shoule be <= nruns.' % default_ngpus)
+                        help='Number of GPUs to use (default %d). Tensorflow will label GPUs from 0 to ngpus-1. '
+                             'Shoule be <= nruns.' % default_ngpus)
     parser.add_argument("--default-gpu", type=int, default=0,
                         help='Default GPU to use (default 0). '
-                             'If value is -1 or if ngpus == 0, then CPU is used as default processins unit.')
-    parser.add_argument("--log", action='store_true', default=False, help='Log device placement (default false)')
+                             'If value is -1 or if ngpus == 0, then CPU is used as default processing unit.')
+    parser.add_argument("--log", action='store_true', default=False,
+                        help='Log device placement (default false)')
     args = parser.parse_args()
 
     assert args.nbatch > 0, "nbatch must be strictly positive."
     assert args.nbatch % args.nruns == 0, "nbatch must be a multiple of nruns."
     assert args.ngpus <= args.nruns, "Number of GPUs must be less than or equal to number of runs."
+    assert args.nin % 4 == 0, "Input size must be a multiple of 4."
 
     device_names = []
     trains = []
-    accuracies = []
     ndefault_gpu = args.nruns - args.ngpus
     default_gpu = '/cpu:0' if (args.ngpus == 0 or args.default_gpu < 0) else '/gpu:%d' % args.default_gpu
 
@@ -124,19 +123,14 @@ if __name__ == '__main__':
     for i in range(args.ngpus):
         device_names += ['/gpu:%d' % i]
 
+    print('Batch size:', args.nbatch)
     args.nbatch //= args.nruns
+    print('Batch size per run:', args.nbatch)
     for i in range(args.nruns):
         with tf.name_scope('benchmark_run_%d' % i):
             with tf.device(device_names[i]):
                 y_, y_conv = build_model(args)
                 trains += [build_train(y_, y_conv)]
-                accuracies += [build_accuracy(y_, y_conv, args.dtype)]
-    with tf.name_scope('benchmark_run_final'):
-        with tf.device('/cpu:0'):
-            sum_accuracy = accuracies[0]
-            for i in range(1, args.nruns):
-                sum_accuracy += accuracies[i]
-            avg_accuracy = sum_accuracy / args.nruns
 
     print('Testing %d runs.' % args.nruns)
     print()
@@ -149,12 +143,9 @@ if __name__ == '__main__':
             sess.run(trains)
             if (i + 1) % 100 == 0:
                 print("Step %d/%d" % (i + 1, args.nsteps))
-        # end profiling
-        time_end = datetime.now()
+        time_end = datetime.now()  # end profiling
         if args.nsteps % 100 != 0:
             print('End (%d steps)' % args.nsteps)
-        sess.run(avg_accuracy)
-        print('End computation')
         time_spent = time_end - time_start
         seconds = time_spent.seconds + time_spent.days * 24 * 3600
         print('Execution time:', seconds, 'sec +', time_spent.microseconds, 'microsec')
