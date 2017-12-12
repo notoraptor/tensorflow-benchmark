@@ -6,7 +6,12 @@ nvidia-docker build -t tensorflow:cuda9 -f Dockerfile.devel-gpu-cuda9-cudnn7 .
 ## Chargement du conteneur docker
 nvidia-docker run -it tensorflow:cuda9
 
-## Récupération et exécution du script
+## Récupération et exécution du script (dans docker)
 git clone https://github.com/notoraptor/tensorflow-benchmark.git
 cd tensorflow-benchmark
-python benchmark/benchmark_deep.py
+# Le benchmark va traiter <nbatch> images de dimensions <nin> * <nin> pour <nout> classes de sortie.
+# Les <nbatch> images peuvent être réparties dans <nruns> exécutions parallèles, chacune sur un GPU.
+# Chaque exécution calcule <nsteps> étapes.
+python benchmark/benchmark_deep.py --dtype float32 --nbatch 1000 --nin 64 --nout 10 --nsteps 1000 --nruns 2 --ngpus 2
+# Pour obtenir plus d'aide:
+python benchmark/benchmark_deep.py --help
