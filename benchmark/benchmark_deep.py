@@ -5,15 +5,32 @@ import argparse
 import numpy as np
 import tensorflow as tf
 
+id = 0
+
+def float32_variable_storage_getter(getter, name, shape=None, dtype=None, initializer=None, regularizer=None,
+                                    trainable=True, *args, **kwargs):
+    """Custom variable getter that forces trainable variables to be stored in
+    float32 precision and then casts them to the training precision."""
+    storage_dtype = tf.float32 if trainable else dtype
+    variable = getter(name, shape, dtype=storage_dtype, initializer=initializer, regularizer=regularizer,
+                      trainable=trainable, *args, **kwargs)
+    if trainable and dtype != tf.float32:
+        variable = tf.cast(variable, dtype)
+    return variable
+
 
 def weight_variable(shape, dtype):
+    global id
+    id += 1
     initial = tf.truncated_normal(shape, stddev=0.1, dtype=dtype)
-    return tf.Variable(initial, dtype=dtype)
+    return tf.get_variable(name='weights_%d' % id, initializer=initial, dtype=dtype)
 
 
 def bias_variable(shape, dtype):
+    global id
+    id += 1
     initial = tf.constant(0.1, shape=shape, dtype=dtype)
-    return tf.Variable(initial, dtype=dtype)
+    return tf.get_variable(name='biases_%d' % id, initializer=initial, dtype=dtype)
 
 
 def conv2d(x, W):
@@ -73,7 +90,8 @@ def build_model(args):
 
     y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
 
-    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_conv))
+    cross_entropy = tf.reduce_mean(
+        tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=tf.cast(y_conv, tf.float32)))
     train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
     return train_step
 
@@ -81,10 +99,12 @@ def build_model(args):
 def run_benchmark(args, device_names, session_config):
     nruns = len(device_names)
     trains = []
-    for i in range(nruns):
-        with tf.name_scope('%s_benchmark_run_%d' % (args.dtype, i)):
-            with tf.device(device_names[i]):
-                trains += [build_model(args)]
+    # Note: This scopes should force trainable variables to be stored as float32
+    with tf.variable_scope('fp32_storage', custom_getter=float32_variable_storage_getter):
+        for i in range(nruns):
+            with tf.name_scope('%s_benchmark_run_%d' % (args.dtype, i)):
+                with tf.device(device_names[i]):
+                    trains += [build_model(args)]
 
     print('Testing dtype', args.dtype)
     profile_message = ''
