@@ -24,16 +24,26 @@ def max_pool_2x2(x):
     return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 
+class Parameters:
+
+    def __init__(self, dtype=None, runsize=None, nsteps=None, nin=None, nout=None):
+        self.dtype = dtype
+        self.runsize = runsize
+        self.nsteps = nsteps
+        self.nin = nin
+        self.nout = nout
+
+
 def build_model(args):
 
     length = args.nin
 
-    data = np.random.normal(size=(args.nbatch, length, length, 1)).astype(args.dtype)
-    target = np.zeros((args.nbatch, args.nout), dtype=args.dtype)
-    target[np.arange(args.nbatch), np.random.randint(low=0, high=args.nout, size=args.nbatch)] = 1
+    data = np.random.normal(size=(args.runsize, length, length, 1)).astype(args.dtype)
+    target = np.zeros((args.runsize, args.nout), dtype=args.dtype)
+    target[np.arange(args.runsize), np.random.randint(low=0, high=args.nout, size=args.runsize)] = 1
 
-    x_image = tf.constant(data, args.dtype, [args.nbatch, length, length, 1], verify_shape=True)
-    y_ = tf.constant(target, args.dtype, [args.nbatch, args.nout], verify_shape=True)
+    x_image = tf.constant(data, args.dtype, [args.runsize, length, length, 1], verify_shape=True)
+    y_ = tf.constant(target, args.dtype, [args.runsize, args.nout], verify_shape=True)
 
     W_conv1 = weight_variable([5, 5, 1, 32], args.dtype)
     b_conv1 = bias_variable([32], args.dtype)
@@ -63,20 +73,42 @@ def build_model(args):
 
     y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
 
-    return y_, y_conv
-
-
-def build_train(y_, y_conv):
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_conv))
     train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
     return train_step
 
 
+def run_benchmark(args, device_names, session_config):
+    nruns = len(device_names)
+    trains = []
+    for i in range(nruns):
+        with tf.name_scope('%s_benchmark_run_%d' % (args.dtype, i)):
+            with tf.device(device_names[i]):
+                trains += [build_model(args)]
+
+    print('Testing dtype', args.dtype)
+    profile_message = ''
+    with tf.Session(config=session_config) as sess:
+        # Start profiling
+        time_start = datetime.now()
+        sess.run(tf.global_variables_initializer())
+        for i in range(args.nsteps):
+            sess.run(trains)
+            if (i + 1) % 100 == 0:
+                print("Step %d/%d" % (i + 1, args.nsteps))
+        time_end = datetime.now()  # end profiling
+        if args.nsteps % 100 != 0:
+            print('End (%d steps)' % args.nsteps)
+        time_spent = time_end - time_start
+        seconds = time_spent.seconds + time_spent.days * 24 * 3600
+        # print('execution time:', seconds, 'sec +', time_spent.microseconds, 'microsec')
+        profile_message = 'execution time: %s sec + %s microsec' % (seconds, time_spent.microseconds)
+    return profile_message
+
 if __name__ == '__main__':
     np.random.seed(12345678)
     tf.set_random_seed(87654321)
 
-    default_dtype = 'float32'
     default_nbatch = 100
     default_nin = 64
     default_nout = 10
@@ -84,8 +116,8 @@ if __name__ == '__main__':
     default_nruns = 2
     default_ngpus = 1
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dtype", type=str, default=default_dtype,
-                        help='Input and output dtype (default %s)' % default_dtype)
+    parser.add_argument("--dtype", action='append',
+                        help='dtypes to test (default: only float32)')
     parser.add_argument("--nbatch", type=int, default=default_nbatch,
                         help='Batch size of the layer (default %d)' % default_nbatch)
     parser.add_argument("--nin", type=int, default=default_nin,
@@ -113,39 +145,26 @@ if __name__ == '__main__':
     assert args.ngpus <= args.nruns, "Number of GPUs must be less than or equal to number of runs."
     assert args.nin % 4 == 0, "Input size must be a multiple of 4."
 
-    device_names = []
-    trains = []
+    tested_dtypes = set(args.dtype)
+    if not tested_dtypes:
+        tested_dtypes = {'float32'}
+
     ndefault_gpu = args.nruns - args.ngpus
     default_gpu = '/cpu:0' if (args.ngpus == 0 or args.default_gpu < 0) else '/gpu:%d' % args.default_gpu
-
+    device_names = []
     for i in range(ndefault_gpu):
         device_names += [default_gpu]
     for i in range(args.ngpus):
         device_names += ['/gpu:%d' % i]
 
-    print('Batch size:', args.nbatch)
-    args.nbatch //= args.nruns
-    print('Batch size per run:', args.nbatch)
-    for i in range(args.nruns):
-        with tf.name_scope('benchmark_run_%d' % i):
-            with tf.device(device_names[i]):
-                y_, y_conv = build_model(args)
-                trains += [build_train(y_, y_conv)]
-
-    print('Testing %d runs.' % args.nruns)
+    runsize = args.nbatch // args.nruns
+    print('Testing %d runs with %d samples per run (total %d samples).' % (args.nruns, runsize, args.nbatch))
     print()
-    config = tf.ConfigProto(log_device_placement=True) if args.log else None
-    with tf.Session(config=config) as sess:
-        # Start profiling
-        time_start = datetime.now()
-        sess.run(tf.global_variables_initializer())
-        for i in range(args.nsteps):
-            sess.run(trains)
-            if (i + 1) % 100 == 0:
-                print("Step %d/%d" % (i + 1, args.nsteps))
-        time_end = datetime.now()  # end profiling
-        if args.nsteps % 100 != 0:
-            print('End (%d steps)' % args.nsteps)
-        time_spent = time_end - time_start
-        seconds = time_spent.seconds + time_spent.days * 24 * 3600
-        print('Execution time:', seconds, 'sec +', time_spent.microseconds, 'microsec')
+    session_config = tf.ConfigProto(log_device_placement=True) if args.log else None
+    profiles = {}
+    for dtype in tested_dtypes:
+        parameters = Parameters(dtype=dtype, runsize=runsize, nsteps=args.nsteps, nin=args.nin, nout=args.nout)
+        profiles[dtype] = run_benchmark(parameters, device_names, session_config)
+    print()
+    for dtype in sorted(profiles.keys()):
+        print('%s:' % dtype, profiles[dtype])
