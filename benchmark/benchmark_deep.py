@@ -137,7 +137,7 @@ if __name__ == '__main__':
     default_ngpus = 1
     parser = argparse.ArgumentParser()
     parser.add_argument("--dtype", action='append',
-                        help='dtypes to test (default: only float32)')
+                        help='dtypes to test (default: only float32). Ex: --dtype float16 --dtype float32 ...')
     parser.add_argument("--nbatch", type=int, default=default_nbatch,
                         help='Batch size of the layer (default %d)' % default_nbatch)
     parser.add_argument("--nin", type=int, default=default_nin,

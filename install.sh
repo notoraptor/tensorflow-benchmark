@@ -13,5 +13,9 @@ cd tensorflow-benchmark
 # Les <nbatch> images peuvent être réparties dans <nruns> exécutions parallèles, chacune sur un GPU.
 # Chaque exécution calcule <nsteps> étapes.
 python benchmark/benchmark_deep.py --dtype float32 --nbatch 1000 --nin 64 --nout 10 --nsteps 1000 --nruns 2 --ngpus 2
+# Exemple pour tester plusieurs dtypes en même temps
+# (1 benchmark par dtype, les temps d'exécution sont tous affichés à la fin):
+python benchmark/benchmark_deep.py --dtype float16 --dtype float32 ...  # autres paramètres
+
 # Pour obtenir plus d'aide:
 python benchmark/benchmark_deep.py --help
