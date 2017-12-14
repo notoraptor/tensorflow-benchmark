@@ -55,11 +55,10 @@ def build_model(args):
 
     length = args.nin
 
-    data = np.random.normal(size=(args.runsize, length, length, 1)).astype(args.dtype)
     target = np.zeros((args.runsize, args.nout), dtype=args.dtype)
     target[np.arange(args.runsize), np.random.randint(low=0, high=args.nout, size=args.runsize)] = 1
 
-    x_image = tf.constant(data, args.dtype, [args.runsize, length, length, 1], verify_shape=True)
+    x_image = tf.random_normal(shape=(args.runsize, length, length, 1), dtype=args.dtype, name='input')
     y_ = tf.constant(target, args.dtype, [args.runsize, args.nout], verify_shape=True)
 
     W_conv1 = weight_variable([5, 5, 1, 32], args.dtype)
