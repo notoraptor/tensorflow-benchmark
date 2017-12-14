@@ -37,10 +37,6 @@ def conv2d(x, W):
     return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
 
 
-def max_pool_2x2(x):
-    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-
-
 class Parameters:
 
     def __init__(self, dtype=None, runsize=None, nsteps=None, nin=None, nout=None):
@@ -51,35 +47,33 @@ class Parameters:
         self.nout = nout
 
 
-def build_model(args):
-
-    length = args.nin
-
+def build_inputs(args):
     target = np.zeros((args.runsize, args.nout), dtype=args.dtype)
     target[np.arange(args.runsize), np.random.randint(low=0, high=args.nout, size=args.runsize)] = 1
+    x_image_initializer = tf.random_normal(shape=(args.runsize, args.nin, args.nin, 1), dtype=args.dtype, name='input')
+    x_image = tf.get_variable(name='input', initializer=x_image_initializer, dtype=args.dtype)
+    y_ = tf.get_variable(name='expected', initializer=target, dtype=args.dtype)
+    return x_image, y_
 
-    x_image = tf.random_normal(shape=(args.runsize, length, length, 1), dtype=args.dtype, name='input')
-    y_ = tf.constant(target, args.dtype, [args.runsize, args.nout], verify_shape=True)
+
+def build_model(args, x_image, y_):
+    length = args.nin
 
     W_conv1 = weight_variable([5, 5, 1, 32], args.dtype)
     b_conv1 = bias_variable([32], args.dtype)
 
     h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
-    h_pool1 = max_pool_2x2(h_conv1)
 
-    W_conv2 = weight_variable([5, 5, 32, 64], args.dtype)
-    b_conv2 = bias_variable([64], args.dtype)
+    W_conv2 = weight_variable([5, 5, 32, 8], args.dtype)
+    b_conv2 = bias_variable([8], args.dtype)
 
-    h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
-    h_pool2 = max_pool_2x2(h_conv2)
+    h_conv2 = tf.nn.relu(conv2d(h_conv1, W_conv2) + b_conv2)
 
-    # (length / 4) * (length / 4) * 64 == length * length * 4
-
-    W_fc1 = weight_variable([length * length * 4, 1024], args.dtype)
+    W_fc1 = weight_variable([length * length * 8, 1024], args.dtype)
     b_fc1 = bias_variable([1024], args.dtype)
 
-    h_pool2_flat = tf.reshape(h_pool2, [-1, length * length * 4])
-    h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+    h_conv2_flat = tf.reshape(h_conv2, [-1, length * length * 8])
+    h_fc1 = tf.nn.relu(tf.matmul(h_conv2_flat, W_fc1) + b_fc1)
 
     keep_prob = tf.constant(0.5, args.dtype)
     h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
@@ -98,19 +92,24 @@ def build_model(args):
 def run_benchmark(args, device_names, session_config):
     nruns = len(device_names)
     trains = []
-    # Note: This scopes should force trainable variables to be stored as float32
-    with tf.variable_scope('fp32_storage', custom_getter=float32_variable_storage_getter):
-        for i in range(nruns):
-            with tf.name_scope('%s_benchmark_run_%d' % (args.dtype, i)):
-                with tf.device(device_names[i]):
-                    trains += [build_model(args)]
+    with tf.name_scope('benchmark_%s' % args.dtype):
+        # Note: We want that inputs variables are stored with arg dtype
+        x_image, y_ = build_inputs(args)
+        # Note: This scopes should force trainable variables to be stored as float32
+        with tf.variable_scope('fp32_storage', custom_getter=float32_variable_storage_getter):
+            for i in range(nruns):
+                with tf.name_scope('run_%d' % i):
+                    with tf.device(device_names[i]):
+                        trains += [build_model(args, x_image, y_)]
 
     print('Testing dtype', args.dtype)
-    profile_message = ''
     with tf.Session(config=session_config) as sess:
+        # Let's NOT profile variables initialization.
+        print('Initializing variables (not profiled) ...')
+        sess.run(tf.global_variables_initializer())
+        print('... End initialization (not profiled).')
         # Start profiling
         time_start = datetime.now()
-        sess.run(tf.global_variables_initializer())
         for i in range(args.nsteps):
             sess.run(trains)
             if (i + 1) % 100 == 0:
