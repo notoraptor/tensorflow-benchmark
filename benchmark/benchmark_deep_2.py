@@ -50,7 +50,7 @@ class Parameters:
 def build_inputs(args):
     target = np.zeros((args.runsize, args.nout), dtype=args.dtype)
     target[np.arange(args.runsize), np.random.randint(low=0, high=args.nout, size=args.runsize)] = 1
-    x_image_initializer = tf.random_normal(shape=(args.runsize, args.nin, args.nin, 1), dtype=args.dtype, name='input')
+    x_image_initializer = tf.random_normal(shape=(args.runsize, args.nin, args.nin, 1), dtype=args.dtype)
     x_image = tf.get_variable(name='input', initializer=x_image_initializer, dtype=args.dtype)
     y_ = tf.get_variable(name='expected', initializer=target, dtype=args.dtype)
     return x_image, y_
@@ -92,7 +92,7 @@ def build_model(args, x_image, y_):
 def run_benchmark(args, device_names, session_config):
     nruns = len(device_names)
     trains = []
-    with tf.name_scope('benchmark_%s' % args.dtype):
+    with tf.variable_scope('benchmark_%s' % args.dtype):
         # Note: We want that inputs variables are stored with arg dtype
         x_image, y_ = build_inputs(args)
         # Note: This scopes should force trainable variables to be stored as float32
@@ -107,7 +107,7 @@ def run_benchmark(args, device_names, session_config):
         # Let's NOT profile variables initialization.
         print('Initializing variables (not profiled) ...')
         sess.run(tf.global_variables_initializer())
-        print('... End initialization (not profiled).')
+        print('... End initialization (not profiled). Starting train ...')
         # Start profiling
         time_start = datetime.now()
         for i in range(args.nsteps):
