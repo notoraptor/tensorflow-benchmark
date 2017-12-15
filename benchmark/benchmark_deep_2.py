@@ -48,6 +48,9 @@ class Parameters:
 
 
 def build_inputs(args):
+    # To save time, we will build inputs as variables once, then
+    # these input variables will be initialized once and reused as-is
+    #  in all computations.
     target = np.zeros((args.runsize, args.nout), dtype=args.dtype)
     target[np.arange(args.runsize), np.random.randint(low=0, high=args.nout, size=args.runsize)] = 1
     x_image_initializer = tf.random_normal(shape=(args.runsize, args.nin, args.nin, 1), dtype=args.dtype)
@@ -93,7 +96,6 @@ def run_benchmark(args, device_names, session_config):
     nruns = len(device_names)
     trains = []
     with tf.variable_scope('benchmark_%s' % args.dtype):
-        # Note: We want that inputs variables are stored with arg dtype
         x_image, y_ = build_inputs(args)
         # Note: This scopes should force trainable variables to be stored as float32
         with tf.variable_scope('fp32_storage', custom_getter=float32_variable_storage_getter):
@@ -139,8 +141,7 @@ if __name__ == '__main__':
     parser.add_argument("--nbatch", type=int, default=default_nbatch,
                         help='Batch size of the layer (default %d)' % default_nbatch)
     parser.add_argument("--nin", type=int, default=default_nin,
-                        help='Input size x of the layer (for layer size x * x), should be a multiple of 4 '
-                             '(default %d)' % default_nin)
+                        help='Input size x of the layer (for layer size x * x) (default %d)' % default_nin)
     parser.add_argument("--nout", type=int, default=default_nout,
                         help='Output size of the layer (default %d)' % default_nout)
     parser.add_argument("--nsteps", type=int, default=default_nsteps,
@@ -161,7 +162,6 @@ if __name__ == '__main__':
     assert args.nbatch > 0, "nbatch must be strictly positive."
     assert args.nbatch % args.nruns == 0, "nbatch must be a multiple of nruns."
     assert args.ngpus <= args.nruns, "Number of GPUs must be less than or equal to number of runs."
-    assert args.nin % 4 == 0, "Input size must be a multiple of 4."
 
     tested_dtypes = set(args.dtype) if args.dtype else {'float32'}
 
@@ -174,7 +174,10 @@ if __name__ == '__main__':
         device_names += ['/gpu:%d' % i]
 
     runsize = args.nbatch // args.nruns
-    print('Testing %d runs with %d samples per run (total %d samples).' % (args.nruns, runsize, args.nbatch))
+    print('Dtypes:', ', '.join(sorted(tested_dtypes)))
+    print('Samples: %d, nin: %d, nout: %d, nsteps: %d' % (args.nbatch, args.nin, args.nout, args.nsteps))
+    print('Testing %d runs with %d samples per run.' % (args.nruns, runsize))
+    print('Devices for runs:', ', '.join(device_names))
     print()
     session_config = tf.ConfigProto(log_device_placement=True) if args.log else None
     profiles = {}
