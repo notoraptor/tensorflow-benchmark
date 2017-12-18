@@ -70,14 +70,15 @@ def build_model(args, x_image, y_):
     b_conv2 = bias_variable([64], args.dtype)
     h_conv2 = conv2d(h_conv1, W_conv2) + b_conv2
 
-    W_conv3 = weight_variable([5, 5, 64, 8], args.dtype)
-    b_conv3 = bias_variable([8], args.dtype)
+    W_conv3 = weight_variable([5, 5, 64, 16], args.dtype)
+    b_conv3 = bias_variable([16], args.dtype)
     h_conv3 = conv2d(h_conv2, W_conv3) + b_conv3
 
-    final_multiplicator = weight_variable([args.runsize, args.nin, 8, args.nin], args.dtype)
-    final_value = tf.matmul(h_conv3, final_multiplicator)
+    W_conv4 = weight_variable([5, 5, 16, 32], args.dtype)
+    b_conv4 = bias_variable([32], args.dtype)
+    h_conv4 = conv2d(h_conv3, W_conv4) + b_conv4
 
-    return final_value
+    return h_conv4
 
 
 def run_benchmark(args, device_names, session_config):
