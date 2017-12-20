@@ -44,12 +44,14 @@ def layer(inputs, size_in, size_mul, size_out, dtype):
 
 class Parameters:
 
-    def __init__(self, dtype=None, runsize=None, nsteps=None, nin=None, nout=None):
+    def __init__(self, dtype=None, runsize=None, nsteps=None, nin=None, nout=None, layers=None, layer_neurons=None):
         self.dtype = dtype
         self.runsize = runsize
         self.nsteps = nsteps
         self.nin = nin
         self.nout = nout
+        self.layers = layers
+        self.layer_neurons = layer_neurons
 
 
 def build_inputs(args):
@@ -62,15 +64,12 @@ def build_inputs(args):
 
 
 def build_model(args, x_image):
-    sizes = [2048] * 5
-    out0 = layer(x_image, args.runsize, args.nin, sizes[0], args.dtype)
-    out1 = layer(out0, args.runsize, sizes[0], sizes[1], dtype)
-    out2 = layer(out1, args.runsize, sizes[1], sizes[2], dtype)
-    out3 = layer(out2, args.runsize, sizes[2], sizes[3], dtype)
-    out4 = layer(out3, args.runsize, sizes[3], sizes[4], dtype)
-    out5 = layer(out4, args.runsize, sizes[3], args.nout, dtype)
-    return out5
-
+    sizes = [args.nin] + ([args.layer_neurons] * args.layers) + [args.nout]
+    outputs = [x_image]
+    for i in range(1, len(sizes)):
+        out = layer(outputs[-1], args.runsize, sizes[i - 1], sizes[i], dtype)
+        outputs.append(out)
+    return outputs[-1]
 
 def run_benchmark(args, device_names, session_config):
     nruns = len(device_names)
@@ -113,6 +112,8 @@ if __name__ == '__main__':
     default_nin = 512
     default_nout = 512
     default_nsteps = 1000
+    default_layers = 5
+    default_layer_neurons = 2048
     default_nruns = 2
     default_ngpus = 1
     parser = argparse.ArgumentParser()
@@ -126,6 +127,10 @@ if __name__ == '__main__':
                         help='Output size of the layer (default %d)' % default_nout)
     parser.add_argument("--nsteps", type=int, default=default_nsteps,
                         help='Number of training steps (default %d)' % default_nsteps)
+    parser.add_argument("--layers", type=int, default=default_layers,
+                        help='Number of layers (default %d)' % default_layers)
+    parser.add_argument("--layer-neurons", type=int, default=default_layer_neurons,
+                        help='Number of neurons per layer (default %d)' % default_layer_neurons)
     parser.add_argument("--nruns", type=int, default=default_nruns,
                         help='Number of parallel runs (default %d). Each run will train with nbatch/nruns inputs. '
                              'nbatch must be a multiple of nruns.' % default_nruns)
@@ -139,6 +144,7 @@ if __name__ == '__main__':
                         help='Log device placement (default false)')
     args = parser.parse_args()
 
+    assert args.layer_neurons > 0, "Number of neurons per layer must be strictly positive."
     assert args.nbatch > 0, "nbatch must be strictly positive."
     assert args.nbatch % args.nruns == 0, "nbatch must be a multiple of nruns."
     assert args.ngpus <= args.nruns, "Number of GPUs must be less than or equal to number of runs."
@@ -155,14 +161,16 @@ if __name__ == '__main__':
 
     runsize = args.nbatch // args.nruns
     print('Dtypes:', ', '.join(sorted(tested_dtypes)))
-    print('Samples: %d, nin: %d, nout: %d, nsteps: %d' % (args.nbatch, args.nin, args.nout, args.nsteps))
+    print('Samples: %d, nin: %d, nout: %d, nsteps: %d, layers: %d, neurons per layer: %d'
+          % (args.nbatch, args.nin, args.nout, args.nsteps, args.layers, args.layer_neurons))
     print('Testing %d runs with %d samples per run.' % (args.nruns, runsize))
     print('Devices for runs:', ', '.join(device_names))
     print()
     session_config = tf.ConfigProto(log_device_placement=True) if args.log else None
     profiles = {}
     for dtype in tested_dtypes:
-        parameters = Parameters(dtype=dtype, runsize=runsize, nsteps=args.nsteps, nin=args.nin, nout=args.nout)
+        parameters = Parameters(dtype=dtype, runsize=runsize, nsteps=args.nsteps, nin=args.nin, nout=args.nout,
+                                layers=args.layers, layer_neurons=args.layer_neurons)
         profiles[dtype] = run_benchmark(parameters, device_names, session_config)
     print()
     for dtype in sorted(profiles.keys()):

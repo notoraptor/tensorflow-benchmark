@@ -1,10 +1,15 @@
+#!/usr/bin/env bash
+
+#### (Anciennement) Compilation et installation d'un conteneur docker à partir du dépôt Tensorflow
 ## Installation du conteneur docker
 git clone https://github.com/tensorflow/tensorflow.git
 cd tensorflow/tensorflow/tools/docker
 nvidia-docker build -t tensorflow:cuda9 -f Dockerfile.devel-gpu-cuda9-cudnn7 .
-
 ## Chargement du conteneur docker
 nvidia-docker run -it tensorflow:cuda9
+
+#### (Nouveau) Chargment d'un conteneur docker fourni par NVIDIA (téléchargeable en ligne sur NVIDIA GPU cloud)
+nvidia-docker run -it --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 --rm nvcr.io/nvidia/tensorflow:17.12
 
 ## Récupération et exécution du script (dans docker)
 git clone https://github.com/notoraptor/tensorflow-benchmark.git
