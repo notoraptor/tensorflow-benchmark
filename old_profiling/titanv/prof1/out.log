@@ -1,0 +1,54 @@
+Dtypes: float16, float32
+Samples: 4096, nin: 2048, nout: 2048, nsteps: 2000, layers: 100, neurons per layer: 2048
+Testing 1 runs with 4096 samples per run.
+Devices for runs: /gpu:0
+
+Testing dtype float16
+Initializing variables (not profiled) ...
+... End initialization (not profiled). Starting train ...
+Step 100/2000
+Step 200/2000
+Step 300/2000
+Step 400/2000
+Step 500/2000
+Step 600/2000
+Step 700/2000
+Step 800/2000
+Step 900/2000
+Step 1000/2000
+Step 1100/2000
+Step 1200/2000
+Step 1300/2000
+Step 1400/2000
+Step 1500/2000
+Step 1600/2000
+Step 1700/2000
+Step 1800/2000
+Step 1900/2000
+Step 2000/2000
+Testing dtype float32
+Initializing variables (not profiled) ...
+... End initialization (not profiled). Starting train ...
+Step 100/2000
+Step 200/2000
+Step 300/2000
+Step 400/2000
+Step 500/2000
+Step 600/2000
+Step 700/2000
+Step 800/2000
+Step 900/2000
+Step 1000/2000
+Step 1100/2000
+Step 1200/2000
+Step 1300/2000
+Step 1400/2000
+Step 1500/2000
+Step 1600/2000
+Step 1700/2000
+Step 1800/2000
+Step 1900/2000
+Step 2000/2000
+
+float16: execution time: 126 sec + 197048 microsec
+float32: execution time: 755 sec + 94725 microsec

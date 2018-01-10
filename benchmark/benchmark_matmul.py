@@ -1,11 +1,14 @@
 # Inspired from: https://www.tensorflow.org/get_started/mnist/pros
 from __future__ import absolute_import, print_function, division
-from datetime import datetime
+
 import argparse
+from datetime import datetime
+
 import numpy as np
 import tensorflow as tf
 
-id = 0
+variables_id = 0
+
 
 def float32_variable_storage_getter(getter, name, shape=None, dtype=None, initializer=None, regularizer=None,
                                     trainable=True, *args, **kwargs):
@@ -20,21 +23,22 @@ def float32_variable_storage_getter(getter, name, shape=None, dtype=None, initia
 
 
 def weight_variable(shape, dtype):
-    global id
-    id += 1
+    global variables_id
+    variables_id += 1
     initial = tf.truncated_normal(shape, stddev=0.1, dtype=dtype)
-    return tf.get_variable(name='weights_%d' % id, initializer=initial, dtype=dtype)
+    return tf.get_variable(name='weights_%d' % variables_id, initializer=initial, dtype=dtype)
 
 
 def bias_variable(shape, dtype):
-    global id
-    id += 1
+    global variables_id
+    variables_id += 1
     initial = tf.constant(0.1, shape=shape, dtype=dtype)
-    return tf.get_variable(name='biases_%d' % id, initializer=initial, dtype=dtype)
+    return tf.get_variable(name='biases_%d' % variables_id, initializer=initial, dtype=dtype)
 
 
 def gemm(inputs, thetas, bias):
     return tf.matmul(inputs, thetas) + bias
+
 
 def layer(inputs, size_in, size_mul, size_out, dtype):
     thetas = weight_variable((size_mul, size_out), dtype)
@@ -71,6 +75,7 @@ def build_model(args, x_image):
         outputs.append(out)
     return outputs[-1]
 
+
 def run_benchmark(args, device_names, session_config):
     nruns = len(device_names)
     trains = []
@@ -103,6 +108,7 @@ def run_benchmark(args, device_names, session_config):
         # print('execution time:', seconds, 'sec +', time_spent.microseconds, 'microsec')
         profile_message = 'execution time: %s sec + %s microsec' % (seconds, time_spent.microseconds)
     return profile_message
+
 
 if __name__ == '__main__':
     np.random.seed(12345678)
@@ -139,7 +145,7 @@ if __name__ == '__main__':
                              'Shoule be <= nruns.' % default_ngpus)
     parser.add_argument("--default-gpu", type=int, default=0,
                         help='Default GPU to use (default 0). '
-                             'If value is -1 or if ngpus == 0, then CPU is used as default processing unit.')
+                             'If value is -1 or ngpus == 0, then CPU is used as default processing unit.')
     parser.add_argument("--log", action='store_true', default=False,
                         help='Log device placement (default false)')
     args = parser.parse_args()

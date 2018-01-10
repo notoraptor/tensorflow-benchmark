@@ -1,0 +1,67 @@
+==38== NVPROF is profiling process 38, command: python benchmark/benchmark_matmul.py --dtype float16 --dtype float32 --nbatch 4096 --nin 2048 --nout 2048 --nsteps 2000 --nruns 1 --ngpus 1 --layers 100 --layer-neurons 2048
+2018-01-10 21:07:55.775317: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1030] Found device 0 with properties: 
+name: Graphics Device major: 7 minor: 0 memoryClockRate(GHz): 1.455
+pciBusID: 0000:02:00.0
+totalMemory: 11.78GiB freeMemory: 11.33GiB
+2018-01-10 21:07:55.775345: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: Graphics Device, pci bus id: 0000:02:00.0, compute capability: 7.0)
+2018-01-10 21:10:03.495922: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: Graphics Device, pci bus id: 0000:02:00.0, compute capability: 7.0)
+==38== Profiling application: python benchmark/benchmark_matmul.py --dtype float16 --dtype float32 --nbatch 4096 --nin 2048 --nout 2048 --nsteps 2000 --nruns 1 --ngpus 1 --layers 100 --layer-neurons 2048
+==38== Profiling result:
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:   81.67%  714.243s    202000  3.5359ms  3.3145ms  3.5585ms  volta_sgemm_128x64_nn
+                   11.69%  102.206s    202000  505.97us  484.54us  547.04us  volta_fp16_s884gemm_fp16_128x128_ldg8_f2f_nn
+                    3.83%  33.4554s    202000  165.62us  163.97us  169.70us  void Eigen::internal::EigenMetaKernel<Eigen::TensorEvaluator<Eigen::TensorAssignOp<Eigen::TensorMap<Eigen::Tensor<float, int=1, int=1, int>, int=16, Eigen::MakePointer>, Eigen::TensorCwiseBinaryOp<Eigen::internal::scalar_sum_op<float, float>, Eigen::TensorMap<Eigen::Tensor<float const , int=1, int=1, int>, int=16, Eigen::MakePointer> const , Eigen::TensorMap<Eigen::Tensor<float const , int=1, int=1, long>, int=16, Eigen::MakePointer> const > const > const , Eigen::GpuDevice>, long>(float, int=1)
+                    1.92%  16.8077s    202000  83.206us  82.047us  92.608us  void Eigen::internal::EigenMetaKernel<Eigen::TensorEvaluator<Eigen::TensorAssignOp<Eigen::TensorMap<Eigen::Tensor<Eigen::half, int=1, int=1, int>, int=16, Eigen::MakePointer>, Eigen::TensorCwiseBinaryOp<Eigen::internal::scalar_sum_op<Eigen::half, Eigen::half>, Eigen::TensorMap<Eigen::Tensor<Eigen::half const , int=1, int=1, int>, int=16, Eigen::MakePointer> const , Eigen::TensorMap<Eigen::Tensor<Eigen::half const , int=1, int=1, long>, int=16, Eigen::MakePointer> const > const > const , Eigen::GpuDevice>, long>(Eigen::half, int=1)
+                    0.87%  7.64763s      4000  1.9119ms  1.2724ms  2.5690ms  [CUDA memcpy DtoH]
+                    0.01%  50.972ms       202  252.34us  241.98us  263.36us  void tensorflow::functor::FillPhiloxRandomKernelLaunch<tensorflow::random::TruncatedNormalDistribution<tensorflow::random::SingleSampleAdapter<tensorflow::random::PhiloxRandom>, Eigen::half>>(tensorflow::random::PhiloxRandom, tensorflow::random::PhiloxRandomResultElementType*, __int64, tensorflow::functor::FillPhiloxRandomKernelLaunch<tensorflow::random::TruncatedNormalDistribution<tensorflow::random::SingleSampleAdapter<tensorflow::random::PhiloxRandom>, Eigen::half>>)
+                    0.00%  36.677ms       609  60.225us  31.008us  118.72us  [CUDA memcpy DtoD]
+                    0.00%  35.921ms       101  355.65us  346.43us  367.90us  void tensorflow::functor::FillPhiloxRandomKernelLaunch<tensorflow::random::TruncatedNormalDistribution<tensorflow::random::SingleSampleAdapter<tensorflow::random::PhiloxRandom>, float>>(tensorflow::random::PhiloxRandom, tensorflow::random::PhiloxRandomResultElementType*, __int64, tensorflow::functor::FillPhiloxRandomKernelLaunch<tensorflow::random::TruncatedNormalDistribution<tensorflow::random::SingleSampleAdapter<tensorflow::random::PhiloxRandom>, float>>)
+                    0.00%  6.4361ms       204  31.549us  30.496us  60.704us  void Eigen::internal::EigenMetaKernel<Eigen::TensorEvaluator<Eigen::TensorAssignOp<Eigen::TensorMap<Eigen::Tensor<Eigen::half, int=1, int=1, int>, int=16, Eigen::MakePointer>, Eigen::TensorCwiseUnaryOp<Eigen::internal::scalar_right<Eigen::half, Eigen::half, Eigen::internal::scalar_product_op<Eigen::half, Eigen::half>>, Eigen::TensorMap<Eigen::Tensor<Eigen::half const , int=1, int=1, int>, int=16, Eigen::MakePointer> const > const > const , Eigen::GpuDevice>, int>(Eigen::half, int=1)
+                    0.00%  6.4184ms       204  31.462us  30.592us  59.712us  void Eigen::internal::EigenMetaKernel<Eigen::TensorEvaluator<Eigen::TensorAssignOp<Eigen::TensorMap<Eigen::Tensor<Eigen::half, int=1, int=1, int>, int=16, Eigen::MakePointer>, Eigen::TensorCwiseUnaryOp<Eigen::internal::scalar_right<Eigen::half, Eigen::half, Eigen::internal::scalar_sum_op<Eigen::half, Eigen::half>>, Eigen::TensorMap<Eigen::Tensor<Eigen::half const , int=1, int=1, int>, int=16, Eigen::MakePointer> const > const > const , Eigen::GpuDevice>, int>(Eigen::half, int=1)
+                    0.00%  6.0295ms       102  59.112us  57.792us  115.52us  void Eigen::internal::EigenMetaKernel<Eigen::TensorEvaluator<Eigen::TensorAssignOp<Eigen::TensorMap<Eigen::Tensor<float, int=1, int=1, int>, int=16, Eigen::MakePointer>, Eigen::TensorCwiseUnaryOp<Eigen::internal::scalar_right<float, float, Eigen::internal::scalar_sum_op<float, float>>, Eigen::TensorMap<Eigen::Tensor<float const , int=1, int=1, int>, int=16, Eigen::MakePointer> const > const > const , Eigen::GpuDevice>, int>(float, int=1)
+                    0.00%  6.0233ms       102  59.051us  57.856us  115.36us  void Eigen::internal::EigenMetaKernel<Eigen::TensorEvaluator<Eigen::TensorAssignOp<Eigen::TensorMap<Eigen::Tensor<float, int=1, int=1, int>, int=16, Eigen::MakePointer>, Eigen::TensorCwiseUnaryOp<Eigen::internal::scalar_right<float, float, Eigen::internal::scalar_product_op<float, float>>, Eigen::TensorMap<Eigen::Tensor<float const , int=1, int=1, int>, int=16, Eigen::MakePointer> const > const > const , Eigen::GpuDevice>, int>(float, int=1)
+                    0.00%  5.4001ms        13  415.39us  1.0880us  2.6924ms  [CUDA memcpy HtoD]
+                    0.00%  196.06us         2  98.031us  97.280us  98.783us  void tensorflow::functor::FillPhiloxRandomKernelLaunch<tensorflow::random::NormalDistribution<tensorflow::random::PhiloxRandom, Eigen::half>>(tensorflow::random::PhiloxRandom, tensorflow::random::PhiloxRandomResultElementType*, __int64, tensorflow::functor::FillPhiloxRandomKernelLaunch<tensorflow::random::NormalDistribution<tensorflow::random::PhiloxRandom, Eigen::half>>)
+                    0.00%  79.071us         1  79.071us  79.071us  79.071us  void tensorflow::functor::FillPhiloxRandomKernelLaunch<tensorflow::random::NormalDistribution<tensorflow::random::PhiloxRandom, float>>(tensorflow::random::PhiloxRandom, tensorflow::random::PhiloxRandomResultElementType*, __int64, tensorflow::functor::FillPhiloxRandomKernelLaunch<tensorflow::random::NormalDistribution<tensorflow::random::PhiloxRandom, float>>)
+                    0.00%  2.1760us         2  1.0880us     992ns  1.1840us  [CUDA memset]
+      API calls:   96.14%  857.136s      4002  214.18ms  35.979ms  373.97ms  cuCtxSynchronize
+                    2.10%  18.7191s  13367981  1.4000us     849ns  2.6948ms  cuEventQuery
+                    1.08%  9.65860s    808918  11.940us  6.1560us  462.12ms  cudaLaunch
+                    0.28%  2.46323s         1  2.46323s  2.46323s  2.46323s  cudaFree
+                    0.23%  2.04167s  10506448     194ns      89ns  1.0509ms  cudaSetupArgument
+                    0.11%  968.51ms         1  968.51ms  968.51ms  968.51ms  cuDevicePrimaryCtxRetain
+                    0.04%  359.26ms    808918     444ns     191ns  980.18us  cudaConfigureCall
+                    0.01%  116.96ms    404000     289ns     124ns  738.90us  cudaGetLastError
+                    0.01%  75.854ms      4000  18.963us  9.5850us  300.91us  cuMemcpyDtoHAsync
+                    0.00%  13.080ms         3  4.3601ms  826.13us  8.3108ms  cuMemHostAlloc
+                    0.00%  10.889ms       609  17.879us  8.6770us  46.344us  cudaMemcpyAsync
+                    0.00%  10.174ms      8024  1.2670us     337ns  75.719us  cuEventRecord
+                    0.00%  8.6505ms         1  8.6505ms  8.6505ms  8.6505ms  cuMemAlloc
+                    0.00%  5.5107ms      4012  1.3730us     659ns  9.1480us  cuStreamWaitEvent
+                    0.00%  2.6218ms         5  524.37us  350.12us  676.72us  cudaGetDeviceProperties
+                    0.00%  885.16us       195  4.5390us     107ns  204.07us  cuDeviceGetAttribute
+                    0.00%  631.54us         3  210.51us  12.125us  377.45us  cudaMalloc
+                    0.00%  480.24us         3  160.08us  107.88us  195.01us  cuMemGetInfo
+                    0.00%  342.38us         3  114.13us  67.301us  165.14us  cuDeviceTotalMem
+                    0.00%  206.42us        12  17.201us  8.4970us  33.409us  cuMemcpyHtoDAsync
+                    0.00%  178.44us         3  59.480us  35.254us  73.361us  cuDeviceGetName
+                    0.00%  158.19us         1  158.19us  158.19us  158.19us  cuDeviceGetProperties
+                    0.00%  88.424us         2  44.212us  43.129us  45.295us  cuMemsetD32
+                    0.00%  87.086us         4  21.771us  9.3730us  57.125us  cuStreamCreate
+                    0.00%  39.582us         8  4.9470us     310ns  14.196us  cuCtxSetCurrent
+                    0.00%  27.726us        32     866ns     627ns  2.0510us  cudaFuncSetAttribute
+                    0.00%  19.181us         1  19.181us  19.181us  19.181us  cudaMemcpy
+                    0.00%  11.088us         2  5.5440us  3.9050us  7.1830us  cuEventDestroy
+                    0.00%  9.1220us        16     570ns     390ns  1.7790us  cudaEventCreateWithFlags
+                    0.00%  6.7280us        12     560ns     139ns  2.1240us  cuDeviceGetCount
+                    0.00%  4.4300us         6     738ns     279ns  1.6280us  cuEventCreate
+                    0.00%  4.1160us        11     374ns     241ns  1.0640us  cudaDeviceGetAttribute
+                    0.00%  2.9130us         4     728ns     337ns  1.3800us  cuDeviceGet
+                    0.00%  2.9060us         3     968ns     215ns  1.5930us  cuDriverGetVersion
+                    0.00%  2.4380us         2  1.2190us     871ns  1.5670us  cuInit
+                    0.00%  1.7870us         1  1.7870us  1.7870us  1.7870us  cudaGetDeviceCount
+                    0.00%  1.4190us         1  1.4190us  1.4190us  1.4190us  cudaGetDevice
+                    0.00%  1.1380us         1  1.1380us  1.1380us  1.1380us  cuDeviceGetPCIBusId
+                    0.00%     961ns         1     961ns     961ns     961ns  cuDevicePrimaryCtxGetState
+                    0.00%     598ns         1     598ns     598ns     598ns  cuCtxGetCurrent
+                    0.00%     573ns         1     573ns     573ns     573ns  cuDeviceComputeCapability
