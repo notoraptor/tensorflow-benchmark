@@ -36,42 +36,40 @@ def bias_variable(shape, dtype):
     return tf.get_variable(name='biases_%d' % variables_id, initializer=initial, dtype=dtype)
 
 
-def gemm(inputs, thetas, bias):
-    return tf.matmul(inputs, thetas) + bias
+def conv2d(inputs, thetas):
+    return tf.nn.conv2d(inputs, thetas, strides=[1, 1, 1, 1], padding='SAME')
 
 
-def layer(inputs, size_in, size_mul, size_out, dtype):
-    thetas = weight_variable((size_mul, size_out), dtype)
-    biases = bias_variable((size_in, size_out), dtype)
-    return gemm(inputs, thetas, biases)
+def layer(inputs, filter_size, n_output_channels, dtype):
+    thetas = weight_variable([filter_size, filter_size, 1, n_output_channels], dtype)
+    biases = bias_variable([n_output_channels], dtype)
+    return conv2d(inputs, thetas) + biases
 
 
 class Parameters:
 
-    def __init__(self, dtype=None, runsize=None, nsteps=None, nin=None, nout=None, layers=None, layer_neurons=None):
+    def __init__(self, dtype=None, runsize=None, nsteps=None, nin=None, layers=None, filter_size=None):
         self.dtype = dtype
         self.runsize = runsize
         self.nsteps = nsteps
         self.nin = nin
-        self.nout = nout
         self.layers = layers
-        self.layer_neurons = layer_neurons
+        self.filter_size = filter_size
 
 
 def build_inputs(args):
     # To save time, we will build inputs as variables once, then
     # these input variables will be initialized once and reused as-is
     #  in all computations.
-    x_image_initializer = tf.random_normal(shape=(args.runsize, args.nin), dtype=args.dtype)
+    x_image_initializer = tf.random_normal(shape=(args.runsize, args.nin, args.nin, 1), dtype=args.dtype)
     x_image = tf.get_variable(name='input', initializer=x_image_initializer, dtype=args.dtype)
     return x_image
 
 
 def build_model(args, x_image):
-    sizes = [args.nin] + ([args.layer_neurons] * args.layers) + [args.nout]
     outputs = [x_image]
-    for i in range(1, len(sizes)):
-        out = layer(outputs[-1], args.runsize, sizes[i - 1], sizes[i], args.dtype)
+    for i in range(args.layers):
+        out = layer(outputs[-1], args.filter_size, 1, args.dtype)
         outputs.append(out)
     return outputs[-1]
 
@@ -115,11 +113,10 @@ if __name__ == '__main__':
     tf.set_random_seed(87654321)
 
     default_nbatch = 4096
-    default_nin = 512
-    default_nout = 512
+    default_nin = 32
     default_nsteps = 1000
     default_layers = 5
-    default_layer_neurons = 2048
+    default_filter_size = 32
     default_nruns = 2
     default_ngpus = 1
     parser = argparse.ArgumentParser()
@@ -128,15 +125,13 @@ if __name__ == '__main__':
     parser.add_argument("--nbatch", type=int, default=default_nbatch,
                         help='Batch size of the layer (default %d)' % default_nbatch)
     parser.add_argument("--nin", type=int, default=default_nin,
-                        help='Input size of the layer (default %d)' % default_nin)
-    parser.add_argument("--nout", type=int, default=default_nout,
-                        help='Output size of the layer (default %d)' % default_nout)
+                        help='Input size of the layer => input shape: nin * nin (default %d)' % default_nin)
     parser.add_argument("--nsteps", type=int, default=default_nsteps,
                         help='Number of training steps (default %d)' % default_nsteps)
     parser.add_argument("--layers", type=int, default=default_layers,
                         help='Number of layers (default %d)' % default_layers)
-    parser.add_argument("--layer-neurons", type=int, default=default_layer_neurons,
-                        help='Number of neurons per layer (default %d)' % default_layer_neurons)
+    parser.add_argument("--filter-size", type=int, default=default_filter_size,
+                        help='Conv filter size => filter shape: filter-size * filter-size (default %d)' % default_filter_size)
     parser.add_argument("--nruns", type=int, default=default_nruns,
                         help='Number of parallel runs (default %d). Each run will train with nbatch/nruns inputs. '
                              'nbatch must be a multiple of nruns.' % default_nruns)
@@ -150,7 +145,7 @@ if __name__ == '__main__':
                         help='Log device placement (default false)')
     args = parser.parse_args()
 
-    assert args.layer_neurons > 0, "Number of neurons per layer must be strictly positive."
+    assert args.filter_size > 0, "Conv filter size must be strictly positive."
     assert args.nbatch > 0, "nbatch must be strictly positive."
     assert args.nbatch % args.nruns == 0, "nbatch must be a multiple of nruns."
     assert args.ngpus <= args.nruns, "Number of GPUs must be less than or equal to number of runs."
@@ -167,16 +162,16 @@ if __name__ == '__main__':
 
     runsize = args.nbatch // args.nruns
     print('Dtypes:', ', '.join(sorted(tested_dtypes)))
-    print('Samples: %d, nin: %d, nout: %d, nsteps: %d, layers: %d, neurons per layer: %d'
-          % (args.nbatch, args.nin, args.nout, args.nsteps, args.layers, args.layer_neurons))
+    print('Samples: %d, input: %d * %d, nsteps: %d, layers: %d, conv filter size: %d'
+          % (args.nbatch, args.nin, args.nin, args.nsteps, args.layers, args.filter_size))
     print('Testing %d runs with %d samples per run.' % (args.nruns, runsize))
     print('Devices for runs:', ', '.join(device_names))
     print()
     session_config = tf.ConfigProto(log_device_placement=True) if args.log else None
     profiles = {}
     for dtype in tested_dtypes:
-        parameters = Parameters(dtype=dtype, runsize=runsize, nsteps=args.nsteps, nin=args.nin, nout=args.nout,
-                                layers=args.layers, layer_neurons=args.layer_neurons)
+        parameters = Parameters(dtype=dtype, runsize=runsize, nsteps=args.nsteps, nin=args.nin,
+                                layers=args.layers, filter_size=args.filter_size)
         profiles[dtype] = run_benchmark(parameters, device_names, session_config)
     print()
     for dtype in sorted(profiles.keys()):
