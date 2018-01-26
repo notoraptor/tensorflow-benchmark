@@ -1,0 +1,1 @@
+nvprof python benchmark/benchmark_conv.py --dtype float16 --dtype float32 --nbatch 64 --nin 227 --nchannels 128 --nsteps 100 --nruns 1 --ngpus 1 --layers 10 --filter-size 3 > out.log 2> out.err

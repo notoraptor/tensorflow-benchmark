@@ -43,8 +43,8 @@ def conv2d(inputs, thetas):
 def layer(inputs, filter_size, n_channels, dtype):
     thetas = weight_variable([filter_size, filter_size, n_channels, n_channels], dtype)
     #thetas = weight_variable([1, n_output_channels, filter_size, filter_size], dtype)
-    biases = bias_variable([n_channels], dtype)
-    return conv2d(inputs, thetas) + biases
+    # biases = bias_variable([n_channels], dtype)
+    return conv2d(inputs, thetas) # + biases
 
 
 class Parameters:

@@ -1,0 +1,16 @@
+Dtypes: float16, float32
+Samples: 64, input: 227 * 227, nsteps: 100, layers: 10, conv filter size: 3
+Testing 1 runs with 64 samples per run.
+Devices for runs: /gpu:0
+
+Testing dtype float16
+Initializing variables (not profiled) ...
+... End initialization (not profiled). Starting train ...
+Step 100/100
+Testing dtype float32
+Initializing variables (not profiled) ...
+... End initialization (not profiled). Starting train ...
+Step 100/100
+
+float16: execution time: 48 sec + 155228 microsec
+float32: execution time: 122 sec + 360871 microsec
